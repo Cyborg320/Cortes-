@@ -1,10 +1,10 @@
 // ==================================================
-// 🧠 IA EDITORA EVOLUTIVA — GERA VÁRIOS VÍDEOS, CORTES E JUNÇÃO
-// ✅ Junta vários vídeos
-// ✅ Faz cortes curtos para redes
-// ✅ Aplica efeitos visuais
-// ✅ Sem legenda, sem música, sem complicação
-// ✅ Botão de gerar funciona e mostra resultado
+// 🧠 IA EDITORA EVOLUTIVA — VERSÃO COM FFmpeg REAL
+// ✅ Junta vídeos
+// ✅ Faz cortes curtos
+// ✅ Aplica efeitos
+// ✅ Gera vídeos reais, não só simulação
+// ✅ Sem legenda, sem música
 // ==================================================
 
 let mediaRecorder = null;
@@ -14,7 +14,10 @@ let arquivoVideoGravado = null;
 let nomePastaSalvamento = "IA_Editora_Arquivos";
 let arquivosCarregados = [];
 let arquivosProntos = [];
+let ffmpeg = null;
+let isFFmpegLoaded = false;
 
+// ========== UTILITÁRIOS ==========
 function dataHoje() {
   return new Date().toISOString().slice(0,10).replace(/-/g,'');
 }
@@ -34,6 +37,28 @@ function baixar(blob, nome) {
   URL.revokeObjectURL(url);
 }
 
+// ========== INICIALIZAR FFMPEG ==========
+async function inicializarFFmpeg() {
+  if(isFFmpegLoaded) return true;
+
+  try {
+    const { FFmpeg } = FFmpegWasm;
+    ffmpeg = new FFmpeg();
+
+    await ffmpeg.load({
+      coreURL: '/ffmpeg/ffmpeg-core.js',
+      wasmURL: '/ffmpeg/ffmpeg-core.wasm'
+    });
+
+    isFFmpegLoaded = true;
+    return true;
+  } catch(e) {
+    console.error('Erro ao carregar FFmpeg:', e);
+    return false;
+  }
+}
+
+// ========== RELÓGIO ==========
 function atualizarRelogio() {
   const el = document.getElementById('mostra-hora');
   if(el) el.textContent = new Date().toLocaleString('pt-BR', { dateStyle: 'full', timeStyle: 'medium' });
@@ -41,6 +66,7 @@ function atualizarRelogio() {
 setInterval(atualizarRelogio, 1000);
 atualizarRelogio();
 
+// ========== NAVEGAÇÃO ==========
 document.querySelectorAll('[data-aba]').forEach(b => {
   b.addEventListener('click', () => {
     document.querySelectorAll('[data-aba]').forEach(x => x.classList.remove('aba-ativa'));
@@ -50,6 +76,7 @@ document.querySelectorAll('[data-aba]').forEach(b => {
   });
 });
 
+// ========== PASTA ==========
 document.getElementById('salvar-pasta')?.addEventListener('click', () => {
   nomePastaSalvamento = document.getElementById('nome-pasta-salvamento')?.value.trim() || "IA_Editora_Arquivos";
   ['nome-pasta-mostra','nome-pasta-saida','resumo-nome-pasta'].forEach(id => {
@@ -59,6 +86,7 @@ document.getElementById('salvar-pasta')?.addEventListener('click', () => {
   alert(`✅ Pasta: ${nomePastaSalvamento}`);
 });
 
+// ========== GRAVAÇÃO ==========
 document.getElementById('btn-iniciar-grav')?.addEventListener('click', async () => {
   try {
     const tela = document.getElementById('gravar-tela')?.checked;
@@ -119,6 +147,7 @@ document.getElementById('btn-baixar-grav')?.addEventListener('click', () => {
   baixar(arquivoVideoGravado, nomeArq('_Gravacoes_', 'Gravacao_Original', 'webm'));
 });
 
+// ========== UPLOAD ==========
 document.getElementById('entrada-video')?.addEventListener('change', e => {
   const novos = Array.from(e.target.files || [])
     .filter(f => f.type.startsWith('video/'))
@@ -142,124 +171,50 @@ function atualizarListaArquivos() {
   ).join('');
 }
 
-// ==================================================
-// 🎬 EDIÇÃO REAL — JUNÇÃO, CORTES, EFEITOS
-// ==================================================
+// ========== 🎬 PROCESSAMENTO REAL DE VÍDEO ==========
+async function processarVideoReal(arquivos, opcoes) {
+  if(!isFFmpegLoaded || !ffmpeg) {
+    throw new Error('FFmpeg não carregado. Verifique se os arquivos do FFmpeg estão na pasta /ffmpeg/');
+  }
 
-async function carregarVideo(blob) {
-  return new Promise((resolve, reject) => {
-    const video = document.createElement('video');
-    video.src = URL.createObjectURL(blob);
-    video.muted = true;
-    video.preload = 'auto';
+  const nomesEntrada = [];
 
-    video.onloadedmetadata = () => resolve(video);
-    video.onerror = reject;
+  for(let i = 0; i < arquivos.length; i++) {
+    const nome = `entrada_${i}.webm`;
+    const buffer = await arquivos[i].blob.arrayBuffer();
+    await ffmpeg.writeFile(nome, new Uint8Array(buffer));
+    nomesEntrada.push(nome);
+  }
+
+  const arquivoLista = 'lista.txt';
+  let conteudoLista = '';
+  nomesEntrada.forEach(nome => {
+    conteudoLista += `file '${nome}'\n`;
   });
+  await ffmpeg.writeFile(arquivoLista, conteudoLista);
+
+  const saida = opcoes.saida || 'saida.webm';
+
+  await ffmpeg.exec([
+    '-f', 'concat',
+    '-safe', '0',
+    '-i', arquivoLista,
+    '-t', opcoes.duracao.toString(),
+    '-vf', opcoes.efeito || '',
+    '-c:v', 'libvpx',
+    '-b:v', '2M',
+    '-c:a', 'libvorbis',
+    saida
+  ]);
+
+  const dados = await ffmpeg.readFile(saida);
+  return new Blob([dados], { type: 'video/webm' });
 }
 
-async function criarVideoEditado(blobs, opcoes = {}) {
-  return new Promise(async (resolve) => {
-    const videos = [];
-
-    for(const blob of blobs) {
-      try {
-        const v = await carregarVideo(blob);
-        videos.push(v);
-      } catch(err) {
-        console.log('Erro ao carregar vídeo:', err);
-      }
-    }
-
-    if(videos.length === 0) {
-      resolve(blobs[0]);
-      return;
-    }
-
-    const L = videos[0].videoWidth || 1280;
-    const A = videos[0].videoHeight || 720;
-    const fps = 24;
-
-    const canvas = document.createElement('canvas');
-    canvas.width = L;
-    canvas.height = A;
-    const ctx = canvas.getContext('2d');
-
-    const stream = canvas.captureStream(fps);
-    const gravar = new MediaRecorder(stream, {
-      mimeType: 'video/webm',
-      videoBitsPerSecond: 2500000
-    });
-
-    let pedacos = [];
-    gravar.ondataavailable = e => e.data.size && pedacos.push(e.data);
-    gravar.onstop = () => {
-      resolve(new Blob(pedacos, { type: 'video/webm' }));
-      videos.forEach(v => URL.revokeObjectURL(v.src));
-    };
-
-    gravar.start(100);
-
-    const duracaoTotal = opcoes.duracao || 8;
-    const cortesPorVideo = Math.max(1, Math.floor(duracaoTotal / videos.length));
-
-    let videoAtual = 0;
-    let tempoNoVideo = 0;
-    let ultimaTroca = -1;
-
-    function desenhar() {
-      if(videoAtual >= videos.length) {
-        gravar.stop();
-        return;
-      }
-
-      const v = videos[videoAtual];
-
-      if(videoAtual !== ultimaTroca) {
-        ultimaTroca = videoAtual;
-        v.currentTime = 0;
-        tempoNoVideo = 0;
-      }
-
-      v.currentTime = tempoNoVideo;
-      ctx.drawImage(v, 0, 0, L, A);
-
-      // Efeito de brilho e cor
-      if(opcoes.melhorarCor) {
-        const img = ctx.getImageData(0, 0, L, A);
-        for(let i = 0; i < img.data.length; i += 4) {
-          img.data[i] = Math.min(255, img.data[i] * 1.12);
-          img.data[i+1] = Math.min(255, img.data[i+1] * 1.08);
-          img.data[i+2] = Math.min(255, img.data[i+2] * 1.15);
-        }
-        ctx.putImageData(img, 0, 0);
-      }
-
-      // Marcação de trecho
-      ctx.fillStyle = 'rgba(0,0,0,0.5)';
-      ctx.fillRect(0, 0, L, 50);
-      ctx.fillStyle = '#ffffff';
-      ctx.font = 'bold 18px sans-serif';
-      ctx.textAlign = 'left';
-      ctx.fillText(`📹 Trecho ${videoAtual+1}/${videos.length}`, 20, 32);
-
-      tempoNoVideo += 1/fps;
-
-      if(tempoNoVideo >= cortesPorVideo) {
-        videoAtual++;
-      }
-
-      requestAnimationFrame(desenhar);
-    }
-
-    desenhar();
-  });
-}
-
-// ========== 🚀 PROCESSAMENTO PRINCIPAL ==========
+// ========== 🚀 BOTÃO DE GERAR EDIÇÃO ==========
 document.getElementById('iniciar-processamento')?.addEventListener('click', async () => {
   if(arquivosCarregados.length === 0) {
-    alert('⚠️ Grave ou envie pelo menos um vídeo!');
+    alert('⚠️ Grave ou envie pelo menos um vídeo primeiro!');
     return;
   }
 
@@ -276,85 +231,104 @@ document.getElementById('iniciar-processamento')?.addEventListener('click', asyn
 
   arquivosProntos = [];
 
-  const todosOsBlobs = arquivosCarregados.map(a => a.blob);
+  if(etapa) etapa.textContent = '🔧 Carregando editor de vídeo...';
+  if(log) log.innerHTML += `<div>🔧 Inicializando FFmpeg...</div>`;
 
-  const listaEdicoes = [
+  const ok = await inicializarFFmpeg();
+  if(!ok) {
+    alert('❌ FFmpeg não carregou. Verifique se você colocou os arquivos na pasta /ffmpeg/');
+    if(botao) botao.disabled = false;
+    return;
+  }
+
+  const edicoes = [
     {
       nome: '1_JUNCAO_COMPLETA_12s',
-      desc: 'Junta todos os vídeos carregados em uma única edição de 12s',
+      desc: 'Junta todos os vídeos em 12 segundos com cor melhorada',
       duracao: 12,
-      melhorarCor: true
+      efeito: 'eq=brightness=0.10:contrast=1.10:saturation=1.20'
     },
     {
       nome: '2_CORTE_CURTO_6s',
-      desc: 'Versão curta de 6s para feed rápido',
+      desc: 'Corte curto de 6 segundos para conteúdo rápido',
       duracao: 6,
-      melhorarCor: true
+      efeito: 'eq=brightness=0.12:contrast=1.15:saturation=1.30'
     },
     {
       nome: '3_REELS_8s',
-      desc: 'Versão de 8s otimizada para Reels/TikTok/Shorts',
+      desc: 'Versão de 8 segundos otimizada para redes sociais',
       duracao: 8,
-      melhorarCor: true
+      efeito: 'eq=brightness=0.08:contrast=1.12:saturation=1.25'
     },
     {
       nome: '4_RESUMO_10s',
-      desc: 'Resumo de 10s com os melhores trechos',
+      desc: 'Resumo de 10 segundos com os principais trechos',
       duracao: 10,
-      melhorarCor: false
+      efeito: 'eq=brightness=0.05:contrast=1.08:saturation=1.15'
     }
   ];
 
-  for(let i = 0; i < listaEdicoes.length; i++) {
-    const edicao = listaEdicoes[i];
+  for(let i = 0; i < edicoes.length; i++) {
+    const edicao = edicoes[i];
 
-    if(etapa) etapa.textContent = `🎬 Gerando ${edicao.nome}...`;
-    if(barra) barra.style.width = ((i+1)/listaEdicoes.length*100) + '%';
+    if(etapa) etapa.textContent = `� Processando ${edicao.nome}...`;
+    if(barra) barra.style.width = ((i+1)/edicoes.length*100) + '%';
     if(log) log.innerHTML += `<div>✅ ${edicao.desc}</div>`;
 
-    const videoFinal = await criarVideoEditado(todosOsBlobs, {
-      duracao: edicao.duracao,
-      melhorarCor: edicao.melhorarCor
-    });
+    try {
+      const videoBlob = await processarVideoReal(arquivosCarregados, {
+        duracao: edicao.duracao,
+        efeito: edicao.efeito,
+        saida: `${edicao.nome}.webm`
+      });
 
-    arquivosProntos.push({
-      nome: nomeArq('_Edicao_Final', edicao.nome, 'webm'),
-      blob: videoFinal,
-      desc: edicao.desc
-    });
+      arquivosProntos.push({
+        nome: nomeArq('_Edicao_Final', edicao.nome, 'webm'),
+        blob: videoBlob,
+        desc: edicao.desc
+      });
+    } catch(e) {
+      console.error('Erro ao processar vídeo:', e);
+      if(log) log.innerHTML += `<div>❌ Erro em ${edicao.nome}: ${e.message}</div>`;
+    }
   }
 
   if(resultados) {
     resultados.classList.remove('oculto');
     resultados.innerHTML = `
       <h3 style="color:#10b981; margin:0 0 1rem 0; font-size:1.2rem;">
-        ✅ ${arquivosProntos.length} Vídeos Gerados com Sucesso!
+        ✅ Processamento Finalizado!
       </h3>
       <p style="margin:0 0 1rem 0; color:#94a3b8;">
         📁 Pasta: <strong>${nomePastaSalvamento}/</strong> |
-        📎 Trechos unidos: <strong>${arquivosCarregados.length}</strong>
+        📎 Arquivos carregados: <strong>${arquivosCarregados.length}</strong>
       </p>
       <div style="background:#1e293b; padding:1rem; border-radius:10px; margin-bottom:1.5rem;">
-        ${arquivosProntos.map((arq, i) => `
-          <div style="padding:0.7rem 0; border-bottom:${i < arquivosProntos.length-1 ? '1px solid #334155' : 'none'};">
-            <p style="margin:0; color:#e2e8f0; font-weight:bold;">📄 ${arq.nome}</p>
-            <p style="margin:0.3rem 0 0 0; font-size:0.85rem; color:#10b981;">${arq.desc}</p>
-          </div>
-        `).join('')}
+        ${arquivosProntos.length > 0 
+          ? arquivosProntos.map((arq, i) => `
+            <div style="padding:0.7rem 0; border-bottom:${i < arquivosProntos.length-1 ? '1px solid #334155' : 'none'};">
+              <p style="margin:0; color:#e2e8f0; font-weight:bold;">📄 ${arq.nome}</p>
+              <p style="margin:0.3rem 0 0 0; font-size:0.85rem; color:#10b981;">${arq.desc}</p>
+            </div>
+          `).join('')
+          : '<p style="color:#ef4444;">Nenhum vídeo foi gerado. Verifique o console.</p>'
+        }
       </div>
-      <div style="display:flex; gap:1rem; flex-wrap:wrap;">
-        <button id="btn-baixar-todos" style="padding:0.9rem 1.8rem; background:linear-gradient(90deg,#6366f1,#ec4899); color:white; border:none; border-radius:10px; font-weight:bold; font-size:1rem; cursor:pointer;">
-          📦 Baixar Todos
-        </button>
-        <button id="btn-baixar-um" style="padding:0.9rem 1.8rem; background:#374151; color:white; border:none; border-radius:10px; font-weight:bold; font-size:1rem; cursor:pointer;">
-          📄 Baixar um por um
-        </button>
-      </div>
+      ${arquivosProntos.length > 0 ? `
+        <div style="display:flex; gap:1rem; flex-wrap:wrap;">
+          <button id="btn-baixar-todos" style="padding:0.9rem 1.8rem; background:linear-gradient(90deg,#6366f1,#ec4899); color:white; border:none; border-radius:10px; font-weight:bold; font-size:1rem; cursor:pointer;">
+            📦 Baixar Todos
+          </button>
+          <button id="btn-baixar-um" style="padding:0.9rem 1.8rem; background:#374151; color:white; border:none; border-radius:10px; font-weight:bold; font-size:1rem; cursor:pointer;">
+            📄 Baixar um por um
+          </button>
+        </div>
+      ` : ''}
     `;
 
     document.getElementById('btn-baixar-todos')?.addEventListener('click', () => {
       arquivosProntos.forEach((arq, i) => setTimeout(() => baixar(arq.blob, arq.nome), i * 350));
-      alert(`✅ Baixando ${arquivosProntos.length} vídeos!\n\n✅ Junta todos os trechos\n✅ Cortes curtos\n✅ Efeitos de cor\n✅ Prontos para postar`);
+      alert(`✅ Baixando ${arquivosProntos.length} vídeos!`);
     });
 
     document.getElementById('btn-baixar-um')?.addEventListener('click', () => {
@@ -365,7 +339,8 @@ document.getElementById('iniciar-processamento')?.addEventListener('click', asyn
 
   if(botao) botao.disabled = false;
 
-  console.log('✅ PROCESSAMENTO FINALIZADO — VÍDEOS GERADOS!');
+  console.log('✅ PROCESSAMENTO FINALIZADO');
+  console.log('Vídeos gerados:', arquivosProntos);
 });
 
-console.log('✅ SISTEMA PRONTO — GERA VÁRIOS VÍDEOS, CORTES E JUNÇÃO!');
+console.log('✅ SISTEMA PRONTO — FFmpeg ATIVADO');
