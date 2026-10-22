@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Editora de Vídeos — Cortes Prontos</title>
+  <script src="https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.12.10/dist/umd/ffmpeg.min.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; font-family: Arial, sans-serif; }
+    body { background: #0f172a; color: #e2e8f0; padding: 20px; max-width: 900px; margin: 0 auto; }
+    h1 { color: #6366f1; margin-bottom: 20px; text-align: center; }
+    .card { background: #1e293b; padding: 25px; border-radius: 12px; margin-bottom: 20px; border: 1px solid #334155; }
+    button { padding: 12px 24px; border: none; border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer; margin: 5px; }
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn-principal { background: linear-gradient(90deg, #6366f1, #ec4899); color: white; width: 100%; padding: 15px; font-size: 18px; margin-top: 10px; }
+    .btn-sucesso { background: #10b981; color: white; }
+    .btn-perigo { background: #ef4444; color: white; }
+    input[type="file"] { padding: 10px; margin: 10px 0; width: 100%; background: #0f172a; border: 1px solid #334155; border-radius: 6px; color: white; }
+    .barra { width: 100%; height: 15px; background: #334155; border-radius: 8px; margin: 15px 0; overflow: hidden; }
+    .barra-preencher { height: 100%; background: linear-gradient(90deg, #6366f1, #10b981); width: 0%; transition: width 0.3s; }
+    .log { background: #020617; padding: 15px; border-radius: 8px; margin: 15px 0; font-family: monospace; font-size: 13px; max-height: 200px; overflow-y: auto; color: #94a3b8; }
+    .sucesso { color: #10b981; }
+    .erro { color: #ef4444; }
+    .lista { margin: 10px 0; }
+    .item { padding: 8px; background: #334155; border-radius: 6px; margin: 5px 0; }
+    .oculto { display: none !important; }
+  </style>
+</head>
+<body>
+
+<h1>🎬 Editora de Vídeos</h1>
+
+<div class="card">
+  <h2>📂 Carregar Vídeos</h2>
+  <input type="file" id="arquivos" accept="video/*" multiple>
+  <p id="quantos">Nenhum vídeo carregado</p>
+  <div id="lista-arquivos" class="lista"></div>
+</div>
+
+<div class="card">
+  <h2>✨ Gerar Vídeos Prontos</h2>
+  <button id="gerar" class="btn-principal">🚀 INICIAR EDIÇÃO</button>
+  <p id="etapa" style="margin: 15px 0;"></p>
+  <div class="barra"><div id="barra-progresso" class="barra-preencher"></div></div>
+  <div id="log" class="log"></div>
+  <div id="resultados" class="oculto">
+    <h3 class="sucesso">✅ Vídeos Gerados!</h3>
+    <div id="lista-resultados"></div>
+    <button id="baixar-todos" class="btn-sucesso">📦 Baixar Todos</button>
+  </div>
+</div>
+
+<script>
+let arquivosCarregados = [];
+let arquivosProntos = [];
+let ffmpeg = null;
+let carregado = false;
+
+// Carregar FFmpeg
+async function carregarFFmpeg() {
+  if(carregado) return true;
+  if(!window.FFmpegWasm) {
+    log('❌ Biblioteca não carregou — verifique a conexão', 'erro');
+    return false;
+  }
+  const { FFmpeg } = window.FFmpegWasm;
+  ffmpeg = new FFmpeg();
+  
+  ffmpeg.on('progress', ({ progress }) => {
+    const pct = Math.round((progress || 0) * 100);
+    document.getElementById('barra-progresso').style.width = pct + '%';
+  });
+  
+  await ffmpeg.load({
+    coreURL: 'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.10/dist/umd/ffmpeg-core.js',
+    wasmURL: 'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.10/dist/umd/ffmpeg-core.wasm'
+  });
+  
+  carregado = true;
+  log('✅ FFmpeg carregado com sucesso!', 'sucesso');
+  return true;
+}
+
+function log(texto, tipo = '') {
+  const el = document.getElementById('log');
+  el.innerHTML += `<div class="${tipo}">${texto}</div>`;
+  el.scrollTop = el.scrollHeight;
+}
+
+function baixar(blob, nome) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = nome;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+// Selecionar arquivos
+document.getElementById('arquivos').addEventListener('change', e => {
+  arquivosCarregados = Array.from(e.target.files).map(f => ({ nome: f.name, blob: f }));
+  document.getElementById('quantos').textContent = `${arquivosCarregados.length} vídeo(s) carregado(s)`;
+  document.getElementById('lista-arquivos').innerHTML = arquivosCarregados.map((a, i) => 
+    `<div class="item">📎 ${i+1}. ${a.nome}</div>`
+  ).join('');
+});
+
+// Limpar arquivos temporários
+async function limpar(nomes) {
+  for(const n of nomes) { try { await ffmpeg.deleteFile(n); } catch {} }
+}
+
+// Gerar uma versão
+async function processar(entradas, nomeSaida, duracao, filtro) {
+  const nomes = [];
+  for(let i = 0; i < entradas.length; i++) {
+    const n = `entrada_${i}.webm`;
+    const buf = await entradas[i].blob.arrayBuffer();
+    await ffmpeg.writeFile(n, new Uint8Array(buf));
+    nomes.push(n);
+  }
+  
+  const lista = 'lista.txt';
+  await ffmpeg.writeFile(lista, nomes.map(n => `file '${n}'`).join('\n'));
+  
+  await ffmpeg.exec([
+    '-f', 'concat', '-safe', '0', '-i', lista,
+    '-t', duracao.toString(),
+    '-vf', filtro,
+    '-c:v', 'libvpx', '-b:v', '2M',
+    '-c:a', 'libvorbis', nomeSaida
+  ]);
+  
+  const dados = await ffmpeg.readFile(nomeSaida);
+  await limpar([...nomes, lista, nomeSaida]);
+  return new Blob([dados], { type: 'video/webm' });
+}
+
+// Botão principal
+document.getElementById('gerar').addEventListener('click', async () => {
+  if(arquivosCarregados.length === 0) {
+    alert('⚠️ Escolha pelo menos um vídeo primeiro!');
+    return;
+  }
+  
+  const btn = document.getElementById('gerar');
+  const etapa = document.getElementById('etapa');
+  const resultados = document.getElementById('resultados');
+  
+  btn.disabled = true;
+  resultados.classList.add('oculto');
+  document.getElementById('log').innerHTML = '';
+  arquivosProntos = [];
+  
+  etapa.textContent = '🔧 Carregando FFmpeg...';
+  const ok = await carregarFFmpeg();
+  if(!ok) { btn.disabled = false; return; }
+  
+  const versoes = [
+    { nome: '1_Completo_12s', duracao: 12, filtro: 'eq=brightness=0.10:contrast=1.10:saturation=1.20', desc: 'Junta todos — 12s — cores melhoradas' },
+    { nome: '2_Curto_6s', duracao: 6, filtro: 'eq=brightness=0.12:contrast=1.15:saturation=1.30', desc: 'Corte rápido — 6s' },
+    { nome: '3_Reels_8s', duracao: 8, filtro: 'eq=brightness=0.08:contrast=1.12:saturation=1.25', desc: 'Otimizado — 8s' },
+    { nome: '4_Resumo_10s', duracao: 10, filtro: 'eq=brightness=0.05:contrast=1.08:saturation=1.15', desc: 'Resumo — 10s' }
+  ];
+  
+  for(let i = 0; i < versoes.length; i++) {
+    const v = versoes[i];
+    etapa.textContent = `🎬 ${i+1}/${versoes.length} — ${v.nome}`;
+    log(`Processando: ${v.desc}`);
+    
+    try {
+      const video = await processar(arquivosCarregados, v.nome + '.webm', v.duracao, v.filtro);
+      arquivosProntos.push({ nome: v.nome + '.webm', blob: video, desc: v.desc });
+      log(`✅ ${v.nome} pronto!`, 'sucesso');
+    } catch(e) {
+      log(`❌ Erro em ${v.nome}: ${e.message}`, 'erro');
+    }
+  }
+  
+  // Mostrar resultados
+  if(arquivosProntos.length > 0) {
+    resultados.classList.remove('oculto');
+    document.getElementById('lista-resultados').innerHTML = arquivosProntos.map(a => 
+      `<div class="item">✅ ${a.nome}<br><small>${a.desc}</small></div>`
+    ).join('');
+  }
+  
+  btn.disabled = false;
+  etapa.textContent = '✅ Finalizado!';
+});
+
+// Baixar todos
+document.addEventListener('click', e => {
+  if(e.target.id === 'baixar-todos') {
+    arquivosProntos.forEach((a, i) => setTimeout(() => baixar(a.blob, a.nome), i * 400));
+    alert(`Baixando ${arquivosProntos.length} vídeos!`);
+  }
+});
+</script>
+
+</body>
+</html>
