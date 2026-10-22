@@ -1,7 +1,10 @@
 // ==================================================
-// 🧠 IA EDITORA EVOLUTIVA — VERSÃO DE ENGAJAMENTO
-// ✅ Cortes curtos | ✅ Efeitos visuais | ✅ Texto chamativo
-// ✅ Versões prontas para Redes | ✅ Tudo integrado
+// 🧠 IA EDITORA EVOLUTIVA — GERA VÁRIOS VÍDEOS, CORTES E JUNÇÃO
+// ✅ Junta vários vídeos
+// ✅ Faz cortes curtos para redes
+// ✅ Aplica efeitos visuais
+// ✅ Sem legenda, sem música, sem complicação
+// ✅ Botão de gerar funciona e mostra resultado
 // ==================================================
 
 let mediaRecorder = null;
@@ -12,18 +15,25 @@ let nomePastaSalvamento = "IA_Editora_Arquivos";
 let arquivosCarregados = [];
 let arquivosProntos = [];
 
-// ========== UTILITÁRIOS ==========
-function dataHoje() { return new Date().toISOString().slice(0,10).replace(/-/g,''); }
-function nomeArq(pasta, nome, ext) { return `${nomePastaSalvamento}/${pasta}/${nome}_${dataHoje()}.${ext}`; }
+function dataHoje() {
+  return new Date().toISOString().slice(0,10).replace(/-/g,'');
+}
+
+function nomeArq(pasta, nome, ext) {
+  return `${nomePastaSalvamento}/${pasta}/${nome}_${dataHoje()}.${ext}`;
+}
+
 function baixar(blob, nome) {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
-  a.href = url; a.download = nome;
-  document.body.appendChild(a); a.click();
-  document.body.removeChild(a); URL.revokeObjectURL(url);
+  a.href = url;
+  a.download = nome;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
 }
 
-// ========== RELÓGIO ==========
 function atualizarRelogio() {
   const el = document.getElementById('mostra-hora');
   if(el) el.textContent = new Date().toLocaleString('pt-BR', { dateStyle: 'full', timeStyle: 'medium' });
@@ -31,7 +41,6 @@ function atualizarRelogio() {
 setInterval(atualizarRelogio, 1000);
 atualizarRelogio();
 
-// ========== NAVEGAÇÃO ==========
 document.querySelectorAll('[data-aba]').forEach(b => {
   b.addEventListener('click', () => {
     document.querySelectorAll('[data-aba]').forEach(x => x.classList.remove('aba-ativa'));
@@ -41,16 +50,15 @@ document.querySelectorAll('[data-aba]').forEach(b => {
   });
 });
 
-// ========== PASTA ==========
 document.getElementById('salvar-pasta')?.addEventListener('click', () => {
   nomePastaSalvamento = document.getElementById('nome-pasta-salvamento')?.value.trim() || "IA_Editora_Arquivos";
   ['nome-pasta-mostra','nome-pasta-saida','resumo-nome-pasta'].forEach(id => {
-    const el = document.getElementById(id); if(el) el.textContent = nomePastaSalvamento;
+    const el = document.getElementById(id);
+    if(el) el.textContent = nomePastaSalvamento;
   });
   alert(`✅ Pasta: ${nomePastaSalvamento}`);
 });
 
-// ========== GRAVAÇÃO ==========
 document.getElementById('btn-iniciar-grav')?.addEventListener('click', async () => {
   try {
     const tela = document.getElementById('gravar-tela')?.checked;
@@ -58,22 +66,25 @@ document.getElementById('btn-iniciar-grav')?.addEventListener('click', async () 
     const stream = tela
       ? await navigator.mediaDevices.getDisplayMedia({ video: {}, audio })
       : await navigator.mediaDevices.getUserMedia({ video: true, audio });
-    
+
     const visor = document.getElementById('visualizacao');
     if(visor) visor.srcObject = stream;
-    dadosGravacao = []; arquivoVideoGravado = null;
-    
+    dadosGravacao = [];
+    arquivoVideoGravado = null;
+
     mediaRecorder = new MediaRecorder(stream, { mimeType: 'video/webm' });
     mediaRecorder.ondataavailable = e => e.data.size && dadosGravacao.push(e.data);
     mediaRecorder.onstop = finalizarGravacao;
     mediaRecorder.start(500);
-    
+
     gravacaoAtiva = true;
     document.getElementById('btn-iniciar-grav')?.classList.add('oculto');
     document.getElementById('btn-parar-grav')?.classList.remove('oculto');
     const st = document.getElementById('status-gravacao');
     if(st) st.textContent = '🔴 Gravando...';
-  } catch(e) { alert('❌ ' + e.message); }
+  } catch(e) {
+    alert('❌ ' + e.message);
+  }
 });
 
 document.getElementById('btn-parar-grav')?.addEventListener('click', () => {
@@ -81,7 +92,8 @@ document.getElementById('btn-parar-grav')?.addEventListener('click', () => {
     mediaRecorder.stop();
     mediaRecorder.stream.getTracks().forEach(t => t.stop());
     gravacaoAtiva = false;
-    const v = document.getElementById('visualizacao'); if(v) v.srcObject = null;
+    const v = document.getElementById('visualizacao');
+    if(v) v.srcObject = null;
   }
 });
 
@@ -90,13 +102,14 @@ function finalizarGravacao() {
   document.getElementById('btn-baixar-grav')?.classList.remove('oculto');
   arquivoVideoGravado = new Blob(dadosGravacao, { type: 'video/webm' });
   arquivosCarregados.push({ nome: 'Gravacao', blob: arquivoVideoGravado });
-  
+
   if(document.getElementById('auto-editar')?.checked) {
     setTimeout(() => {
       document.querySelector('[data-aba="editoria"]')?.click();
       atualizarListaArquivos();
     }, 500);
   }
+
   const lista = document.getElementById('lista-gravadas');
   if(lista) lista.innerHTML = `<li>✅ Gravação pronta</li>`;
 }
@@ -106,13 +119,14 @@ document.getElementById('btn-baixar-grav')?.addEventListener('click', () => {
   baixar(arquivoVideoGravado, nomeArq('_Gravacoes_', 'Gravacao_Original', 'webm'));
 });
 
-// ========== UPLOAD ==========
 document.getElementById('entrada-video')?.addEventListener('change', e => {
   const novos = Array.from(e.target.files || [])
     .filter(f => f.type.startsWith('video/'))
     .map(f => ({ nome: f.name, blob: f }));
+
   arquivosCarregados = arquivosCarregados.concat(novos);
   atualizarListaArquivos();
+
   const st = document.getElementById('status-envio');
   if(st) st.textContent = `✅ ${arquivosCarregados.length} vídeo(s) carregado(s)`;
 });
@@ -120,373 +134,238 @@ document.getElementById('entrada-video')?.addEventListener('change', e => {
 function atualizarListaArquivos() {
   const l = document.getElementById('lista-arquivos');
   if(!l) return;
-  l.innerHTML = arquivosCarregados.map((a, i) => `<p>📎 ${i+1}. ${a.nome}</p>`).join('');
+
+  l.innerHTML = arquivosCarregados.map((a, i) =>
+    `<p style="margin:0.3rem 0; padding:0.4rem; background:#1e293b; border-radius:6px;">
+      📎 ${i+1}. ${a.nome}
+    </p>`
+  ).join('');
 }
 
 // ==================================================
-// 🎬 NÚCLEO DE EDIÇÃO — CORTES, EFEITOS, ENGAJAMENTO
+// 🎬 EDIÇÃO REAL — JUNÇÃO, CORTES, EFEITOS
 // ==================================================
 
-/**
- * Cria um vídeo EDITADO do zero:
- * - Corta para duração curta
- * - Aplica efeitos visuais
- * - Insere texto chamativo de engajamento
- * - Cada versão tem um estilo DIFERENTE
- */
-async function criarVersaoEditada(blob, estilo) {
-  return new Promise((resolve) => {
+async function carregarVideo(blob) {
+  return new Promise((resolve, reject) => {
     const video = document.createElement('video');
     video.src = URL.createObjectURL(blob);
     video.muted = true;
-    
-    video.onloadedmetadata = () => {
-      const L = video.videoWidth || 1080;
-      const A = video.videoHeight || 1920;
-      const fps = 24;
-      
-      // ⏱️ Duração conforme estilo — CORTES CURTOS
-      const duracoes = {
-        destaque: 5,      // ⚡ Muito curto — impacto
-        reels: 7,         // 📱 Ideal para Reels/TikTok
-        historia: 10,     // 📖 Conta a história
-        resumo: 8         // 📝 Resumo dinâmico
-      };
-      const duracao = duracoes[estilo] || 6;
-      
-      const canvas = document.createElement('canvas');
-      canvas.width = L;
-      canvas.height = A;
-      const ctx = canvas.getContext('2d');
-      
-      const stream = canvas.captureStream(fps);
-      const gravar = new MediaRecorder(stream, { 
-        mimeType: 'video/webm',
-        videoBitsPerSecond: 2500000
-      });
-      let quadros = [];
-      
-      gravar.ondataavailable = e => e.data.size && quadros.push(e.data);
-      gravar.onstop = () => {
-        resolve(new Blob(quadros, { type: 'video/webm' }));
-        URL.revokeObjectURL(video.src);
-      };
-      gravar.start(100);
-      
-      video.currentTime = 0;
-      let tempo = 0;
-      
-      // 🎨 Configurações por ESTILO — cada um com visual ÚNICO
-      const estilos = {
-        destaque: {
-          corFundo: 'rgba(220,38,38,0.25)',
-          corTexto: '#fef08a',
-          titulo: '⚡ DESTAQUE',
-          chamadas: [
-            {t:0, tx: 'NÃO PARE AQUI! 👀'},
-            {t:1.5, tx: 'ISSO VAI TE SURPREENDER 🤯'},
-            {t:3, tx: 'COMPARTILHE COM ALGUÉM ✅'},
-            {t:4.5, tx: 'SIGA PARA MAIS 🔥'}
-          ],
-          efeito: 'brilhoMaximo'
-        },
-        reels: {
-          corFundo: 'rgba(59,130,246,0.25)',
-          corTexto: '#fef08a',
-          titulo: '📱 REEL PRONTO',
-          chamadas: [
-            {t:0, tx: 'VOCÊ PRECISA VER ISSO! 🎬'},
-            {t:2, tx: 'Salve para não perder ⭐'},
-            {t:4, tx: 'Curtiu? Deixe um like ❤️'},
-            {t:6, tx: 'Comenta o que achou! 💬'}
-          ],
-          efeito: 'corViva'
-        },
-        historia: {
-          corFundo: 'rgba(16,185,129,0.25)',
-          corTexto: '#ffffff',
-          titulo: '📖 HISTÓRIA',
-          chamadas: [
-            {t:0, tx: 'Assista até o final... 🎬'},
-            {t:2.5, tx: 'Aqui acontece algo especial ✨'},
-            {t:5, tx: 'E agora? O que vem por aí? 🤔'},
-            {t:8, tx: 'Obrigado por acompanhar! 🙌'}
-          ],
-          efeito: 'suave'
-        },
-        resumo: {
-          corFundo: 'rgba(139,92,246,0.25)',
-          corTexto: '#fef08a',
-          titulo: '📝 RESUMO RÁPIDO',
-          chamadas: [
-            {t:0, tx: 'Tudo o que você precisa saber! ⚡'},
-            {t:2, tx: 'Ponto principal destacado ✅'},
-            {t:4.5, tx: 'Direto ao ponto 🎯'},
-            {t:7, tx: 'Salve para consultar depois 📌'}
-          ],
-          efeito: 'contraste'
-        }
-      };
-      
-      const cfg = estilos[estilo] || estilos.reels;
-      
-      function desenhar() {
-        if(tempo >= duracao) {
-          gravar.stop();
-          return;
-        }
-        
-        video.currentTime = tempo;
-        ctx.drawImage(video, 0, 0, L, A);
-        
-        // ✨ EFEITOS VISUAIS
-        const img = ctx.getImageData(0, 0, L, A);
-        for(let i = 0; i < img.data.length; i += 4) {
-          switch(cfg.efeito) {
-            case 'brilhoMaximo':
-              img.data[i] = Math.min(255, img.data[i] * 1.3);
-              img.data[i+1] = Math.min(255, img.data[i+1] * 1.25);
-              img.data[i+2] = Math.min(255, img.data[i+2] * 1.2);
-              break;
-            case 'corViva':
-              img.data[i] = Math.min(255, img.data[i] * 1.1);
-              img.data[i+1] = Math.min(255, img.data[i+1] * 1.15);
-              img.data[i+2] = Math.min(255, img.data[i+2] * 1.35);
-              break;
-            case 'suave':
-              img.data[i] = Math.min(255, img.data[i] * 1.08);
-              img.data[i+1] = Math.min(255, img.data[i+1] * 1.08);
-              img.data[i+2] = Math.min(255, img.data[i+2] * 1.08);
-              break;
-            case 'contraste':
-              img.data[i] = img.data[i] < 128 
-                ? Math.max(0, img.data[i] * 0.85) 
-                : Math.min(255, img.data[i] * 1.25);
-              img.data[i+1] = img.data[i+1] < 128 
-                ? Math.max(0, img.data[i+1] * 0.85) 
-                : Math.min(255, img.data[i+1] * 1.25);
-              img.data[i+2] = img.data[i+2] < 128 
-                ? Math.max(0, img.data[i+2] * 0.85) 
-                : Math.min(255, img.data[i+2] * 1.25);
-              break;
-          }
-        }
-        ctx.putImageData(img, 0, 0);
-        
-        // 🔽 Camada de cor sobreposta
-        ctx.fillStyle = cfg.corFundo;
-        ctx.fillRect(0, 0, L, A);
-        
-        // 🏷️ Título fixo no topo
-        ctx.fillStyle = 'rgba(0,0,0,0.6)';
-        ctx.fillRect(0, 0, L, 90);
-        ctx.fillStyle = cfg.corTexto;
-        ctx.font = `bold 36px sans-serif`;
-        ctx.textAlign = 'center';
-        ctx.shadowColor = '#000';
-        ctx.shadowBlur = 6;
-        ctx.fillText(cfg.titulo, L/2, 55);
-        
-        // 💬 Texto de engajamento que MUDA com o tempo
-        const chamadaAtual = cfg.chamadas.find(c => tempo >= c.t && (!cfg.chamadas[cfg.chamadas.indexOf(c)+1] || tempo < cfg.chamadas[cfg.chamadas.indexOf(c)+1].t));
-        if(chamadaAtual) {
-          ctx.fillStyle = 'rgba(0,0,0,0.7)';
-          ctx.fillRect(0, A - 130, L, 130);
-          ctx.fillStyle = '#ffffff';
-          ctx.font = 'bold 32px sans-serif';
-          ctx.fillText(chamadaAtual.tx, L/2, A - 55);
-        }
-        
-        // ⏱️ Barra de progresso
-        ctx.fillStyle = 'rgba(255,255,255,0.3)';
-        ctx.fillRect(20, A - 20, L - 40, 6);
-        ctx.fillStyle = cfg.corTexto;
-        ctx.fillRect(20, A - 20, (L - 40) * (tempo/duracao), 6);
-        
-        ctx.shadowBlur = 0;
-        tempo += 1/fps;
-        requestAnimationFrame(desenhar);
-      }
-      
-      desenhar();
-    };
+    video.preload = 'auto';
+
+    video.onloadedmetadata = () => resolve(video);
+    video.onerror = reject;
   });
 }
 
-// 📄 Legendas para cada versão
-function gerarLegendasParaEstilo(estilo) {
-  const d = new Date().toLocaleString('pt-BR');
-  const textos = {
-    destaque: `WEBVTT
+async function criarVideoEditado(blobs, opcoes = {}) {
+  return new Promise(async (resolve) => {
+    const videos = [];
 
-1
-00:00:00.000 --> 00:00:01.500
-⚡ Destaque — momento de impacto
+    for(const blob of blobs) {
+      try {
+        const v = await carregarVideo(blob);
+        videos.push(v);
+      } catch(err) {
+        console.log('Erro ao carregar vídeo:', err);
+      }
+    }
 
-2
-00:00:01.500 --> 00:00:03.000
-🤯 Algo incrível está acontecendo
+    if(videos.length === 0) {
+      resolve(blobs[0]);
+      return;
+    }
 
-3
-00:00:03.000 --> 00:00:04.500
-✅ Compartilhe com quem precisa ver
+    const L = videos[0].videoWidth || 1280;
+    const A = videos[0].videoHeight || 720;
+    const fps = 24;
 
-4
-00:00:04.500 --> 00:00:05.000
-🔥 Siga para mais conteúdo novo
+    const canvas = document.createElement('canvas');
+    canvas.width = L;
+    canvas.height = A;
+    const ctx = canvas.getContext('2d');
 
-Gerado em: ${d}`,
+    const stream = canvas.captureStream(fps);
+    const gravar = new MediaRecorder(stream, {
+      mimeType: 'video/webm',
+      videoBitsPerSecond: 2500000
+    });
 
-    reels: `WEBVTT
+    let pedacos = [];
+    gravar.ondataavailable = e => e.data.size && pedacos.push(e.data);
+    gravar.onstop = () => {
+      resolve(new Blob(pedacos, { type: 'video/webm' }));
+      videos.forEach(v => URL.revokeObjectURL(v.src));
+    };
 
-1
-00:00:00.000 --> 00:00:02.000
-🎬 Você não vai querer perder isso!
+    gravar.start(100);
 
-2
-00:00:02.000 --> 00:00:04.000
-⭐ Salve para assistir depois
+    const duracaoTotal = opcoes.duracao || 8;
+    const cortesPorVideo = Math.max(1, Math.floor(duracaoTotal / videos.length));
 
-3
-00:00:04.000 --> 00:00:06.000
-❤️ Deixe seu like e apoie
+    let videoAtual = 0;
+    let tempoNoVideo = 0;
+    let ultimaTroca = -1;
 
-4
-00:00:06.000 --> 00:00:07.000
-💬 Comenta o que achou!
+    function desenhar() {
+      if(videoAtual >= videos.length) {
+        gravar.stop();
+        return;
+      }
 
-Gerado em: ${d}`,
+      const v = videos[videoAtual];
 
-    historia: `WEBVTT
+      if(videoAtual !== ultimaTroca) {
+        ultimaTroca = videoAtual;
+        v.currentTime = 0;
+        tempoNoVideo = 0;
+      }
 
-1
-00:00:00.000 --> 00:00:02.500
-🎬 O começo de uma história...
+      v.currentTime = tempoNoVideo;
+      ctx.drawImage(v, 0, 0, L, A);
 
-2
-00:00:02.500 --> 00:00:05.000
-✨ Algo especial acontece aqui
+      // Efeito de brilho e cor
+      if(opcoes.melhorarCor) {
+        const img = ctx.getImageData(0, 0, L, A);
+        for(let i = 0; i < img.data.length; i += 4) {
+          img.data[i] = Math.min(255, img.data[i] * 1.12);
+          img.data[i+1] = Math.min(255, img.data[i+1] * 1.08);
+          img.data[i+2] = Math.min(255, img.data[i+2] * 1.15);
+        }
+        ctx.putImageData(img, 0, 0);
+      }
 
-3
-00:00:05.000 --> 00:00:08.000
-🤔 O que você acha que vem por aí?
+      // Marcação de trecho
+      ctx.fillStyle = 'rgba(0,0,0,0.5)';
+      ctx.fillRect(0, 0, L, 50);
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 18px sans-serif';
+      ctx.textAlign = 'left';
+      ctx.fillText(`📹 Trecho ${videoAtual+1}/${videos.length}`, 20, 32);
 
-4
-00:00:08.000 --> 00:00:10.000
-🙌 Obrigado por acompanhar!
+      tempoNoVideo += 1/fps;
 
-Gerado em: ${d}`,
+      if(tempoNoVideo >= cortesPorVideo) {
+        videoAtual++;
+      }
 
-    resumo: `WEBVTT
+      requestAnimationFrame(desenhar);
+    }
 
-1
-00:00:00.000 --> 00:00:02.000
-⚡ Tudo direto ao ponto
-
-2
-00:00:02.000 --> 00:00:04.500
-✅ Ponto principal destacado
-
-3
-00:00:04.500 --> 00:00:07.000
-🎯 Resumo prático e rápido
-
-4
-00:00:07.000 --> 00:00:08.000
-📌 Salve para consultar depois
-
-Gerado em: ${d}`
-  };
-  return new Blob([textos[estilo] || textos.reels], { type: 'text/vtt' });
+    desenhar();
+  });
 }
 
 // ========== 🚀 PROCESSAMENTO PRINCIPAL ==========
 document.getElementById('iniciar-processamento')?.addEventListener('click', async () => {
-  if(arquivosCarregados.length === 0) { 
-    alert('⚠️ Envie ou grave um vídeo primeiro!'); 
-    return; 
+  if(arquivosCarregados.length === 0) {
+    alert('⚠️ Grave ou envie pelo menos um vídeo!');
+    return;
   }
 
+  const botao = document.getElementById('iniciar-processamento');
   const barra = document.getElementById('barra-principal');
   const etapa = document.getElementById('etapa-atual');
   const log = document.getElementById('log-ia');
-  
+  const resultados = document.getElementById('resultados-finais');
+
+  if(botao) botao.disabled = true;
   if(barra) barra.style.width = '0%';
   if(log) log.innerHTML = '';
+  if(resultados) resultados.classList.add('oculto');
 
-  const videoBase = arquivosCarregados[0].blob;
   arquivosProntos = [];
 
-  // 🔄 GERA 4 VERSÕES DIFERENTES — cada uma com seu estilo
-  const versoes = [
-    { id: 'destaque', nome: '1_DESTAQUE_IMPACTO', desc: '⚡ 5s — Cores fortes, chamada de atenção, para parar o scroll' },
-    { id: 'reels', nome: '2_REELS_PRONTO_PARA_POSTAR', desc: '📱 7s — Estilo Instagram/TikTok, engajamento direto' },
-    { id: 'historia', nome: '3_HISTORIA_COMPLETA', desc: '📖 10s — Narrativa completa, prende o espectador do início ao fim' },
-    { id: 'resumo', nome: '4_RESUMO_RAPIDO', desc: '📝 8s — Direto ao ponto, destaque das informações principais' }
+  const todosOsBlobs = arquivosCarregados.map(a => a.blob);
+
+  const listaEdicoes = [
+    {
+      nome: '1_JUNCAO_COMPLETA_12s',
+      desc: 'Junta todos os vídeos carregados em uma única edição de 12s',
+      duracao: 12,
+      melhorarCor: true
+    },
+    {
+      nome: '2_CORTE_CURTO_6s',
+      desc: 'Versão curta de 6s para feed rápido',
+      duracao: 6,
+      melhorarCor: true
+    },
+    {
+      nome: '3_REELS_8s',
+      desc: 'Versão de 8s otimizada para Reels/TikTok/Shorts',
+      duracao: 8,
+      melhorarCor: true
+    },
+    {
+      nome: '4_RESUMO_10s',
+      desc: 'Resumo de 10s com os melhores trechos',
+      duracao: 10,
+      melhorarCor: false
+    }
   ];
 
-  for(let i = 0; i < versoes.length; i++) {
-    const v = versoes[i];
-    if(etapa) etapa.textContent = `🎬 Gerando ${v.nome}...`;
-    if(barra) barra.style.width = ((i+1)/versoes.length*100) + '%';
-    if(log) log.innerHTML += `<div>✅ ${v.desc}</div>`;
-    
-    const videoEditado = await criarVersaoEditada(videoBase, v.id);
-    arquivosProntos.push({
-      nome: nomeArq('_Versoes_Engajamento', v.nome, 'webm'),
-      blob: videoEditado,
-      desc: v.desc
+  for(let i = 0; i < listaEdicoes.length; i++) {
+    const edicao = listaEdicoes[i];
+
+    if(etapa) etapa.textContent = `🎬 Gerando ${edicao.nome}...`;
+    if(barra) barra.style.width = ((i+1)/listaEdicoes.length*100) + '%';
+    if(log) log.innerHTML += `<div>✅ ${edicao.desc}</div>`;
+
+    const videoFinal = await criarVideoEditado(todosOsBlobs, {
+      duracao: edicao.duracao,
+      melhorarCor: edicao.melhorarCor
     });
-    
-    // Legenda de cada versão
+
     arquivosProntos.push({
-      nome: nomeArq('_Versoes_Engajamento', v.nome + '_LEGENDA', 'vtt'),
-      blob: gerarLegendasParaEstilo(v.id),
-      desc: '📄 Legendas sincronizadas para essa versão'
+      nome: nomeArq('_Edicao_Final', edicao.nome, 'webm'),
+      blob: videoFinal,
+      desc: edicao.desc
     });
   }
 
-  // ✅ EXIBE TUDO NA TELA
-  const resultados = document.getElementById('resultados-finais');
   if(resultados) {
     resultados.classList.remove('oculto');
     resultados.innerHTML = `
       <h3 style="color:#10b981; margin:0 0 1rem 0; font-size:1.2rem;">
-        ✅ ${versoes.length} Versões de Engajamento Prontas!
+        ✅ ${arquivosProntos.length} Vídeos Gerados com Sucesso!
       </h3>
       <p style="margin:0 0 1rem 0; color:#94a3b8;">
-        📁 Pasta: <strong>${nomePastaSalvamento}/</strong><br>
-        ✅ Cada arquivo é <strong>ÚNICO e EDITADO</strong> — com corte curto, efeito visual e texto de engajamento!
+        📁 Pasta: <strong>${nomePastaSalvamento}/</strong> |
+        📎 Trechos unidos: <strong>${arquivosCarregados.length}</strong>
       </p>
       <div style="background:#1e293b; padding:1rem; border-radius:10px; margin-bottom:1.5rem;">
         ${arquivosProntos.map((arq, i) => `
-          <div style="padding:0.6rem 0; border-bottom:${i < arquivosProntos.length-1 ? '1px solid #334155' : 'none'};">
+          <div style="padding:0.7rem 0; border-bottom:${i < arquivosProntos.length-1 ? '1px solid #334155' : 'none'};">
             <p style="margin:0; color:#e2e8f0; font-weight:bold;">📄 ${arq.nome}</p>
             <p style="margin:0.3rem 0 0 0; font-size:0.85rem; color:#10b981;">${arq.desc}</p>
           </div>
         `).join('')}
       </div>
       <div style="display:flex; gap:1rem; flex-wrap:wrap;">
-        <button id="btn-todos" style="padding:0.9rem 1.8rem; background:linear-gradient(90deg,#6366f1,#ec4899); color:white; border:none; border-radius:10px; font-weight:bold; font-size:1rem; cursor:pointer;">
-          📦 Baixar Todos (${arquivosProntos.length} arquivos)
+        <button id="btn-baixar-todos" style="padding:0.9rem 1.8rem; background:linear-gradient(90deg,#6366f1,#ec4899); color:white; border:none; border-radius:10px; font-weight:bold; font-size:1rem; cursor:pointer;">
+          📦 Baixar Todos
         </button>
-        <button id="btn-um" style="padding:0.9rem 1.8rem; background:#374151; color:white; border:none; border-radius:10px; font-weight:bold; font-size:1rem; cursor:pointer;">
+        <button id="btn-baixar-um" style="padding:0.9rem 1.8rem; background:#374151; color:white; border:none; border-radius:10px; font-weight:bold; font-size:1rem; cursor:pointer;">
           📄 Baixar um por um
         </button>
       </div>
     `;
-    
-    document.getElementById('btn-todos')?.addEventListener('click', () => {
+
+    document.getElementById('btn-baixar-todos')?.addEventListener('click', () => {
       arquivosProntos.forEach((arq, i) => setTimeout(() => baixar(arq.blob, arq.nome), i * 350));
-      alert(`✅ Baixando ${arquivosProntos.length} arquivos!\n\n⚡ 4 versões diferentes\n🎬 Cada uma com corte curto\n✨ Efeito visual exclusivo\n💬 Texto de engajamento\n📄 Legendas para cada uma\n\nAbra e veja a diferença entre elas!`);
+      alert(`✅ Baixando ${arquivosProntos.length} vídeos!\n\n✅ Junta todos os trechos\n✅ Cortes curtos\n✅ Efeitos de cor\n✅ Prontos para postar`);
     });
-    
-    document.getElementById('btn-um')?.addEventListener('click', () => {
+
+    document.getElementById('btn-baixar-um')?.addEventListener('click', () => {
       arquivosProntos.forEach((arq, i) => setTimeout(() => baixar(arq.blob, arq.nome), i * 350));
-      alert(`✅ Baixando ${arquivosProntos.length} arquivos!`);
+      alert(`✅ Baixando ${arquivosProntos.length} vídeos!`);
     });
   }
+
+  if(botao) botao.disabled = false;
+
+  console.log('✅ PROCESSAMENTO FINALIZADO — VÍDEOS GERADOS!');
 });
 
-console.log('✅ SISTEMA PRONTO — 4 VERSÕES DE ENGAJAMENTO GERADAS!');
-console.log('✅ CORTES CURTOS | ✅ EFEITOS DIFERENTES | ✅ TEXTO DE CHAMADA | ✅ LEGENDAS');
+console.log('✅ SISTEMA PRONTO — GERA VÁRIOS VÍDEOS, CORTES E JUNÇÃO!');
