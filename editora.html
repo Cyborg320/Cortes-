@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Editora de Vídeos — Sem Dependências Externas</title>
+  <title>Editora de Vídeos — Cortes Prontos</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; font-family: Arial, sans-serif; }
     body { background: #0f172a; color: #e2e8f0; padding: 20px; max-width: 900px; margin: 0 auto; }
@@ -22,16 +22,11 @@
     .erro { color: #ef4444; }
     .item { padding: 10px; background: #334155; border-radius: 6px; margin: 8px 0; }
     .oculto { display: none !important; }
-    .aviso { background: rgba(245,158,11,0.15); border-left: 3px solid #f59e0b; padding: 12px; border-radius: 6px; margin: 15px 0; }
   </style>
 </head>
 <body>
 
 <h1>🎬 Editora de Vídeos</h1>
-
-<div class="aviso">
-  ⚡ Versão otimizada — sem FFmpeg externo. Funciona direto no navegador!
-</div>
 
 <div class="card">
   <h2>📂 Carregar Vídeos</h2>
@@ -43,7 +38,7 @@
 <div class="card">
   <h2>✨ Gerar Vídeos Prontos</h2>
   <p style="color:#94a3b8; margin-bottom:15px;">
-    Junta os vídeos, melhora cores e cria 4 versões com durações diferentes. Sem legenda, sem música.
+    Junta os vídeos carregados, melhora cores e gera 4 versões com durações diferentes. Sem legenda, sem música extra.
   </p>
   <button id="gerar" class="btn-principal">🚀 INICIAR EDIÇÃO</button>
   <p id="etapa" style="margin: 15px 0; font-weight: bold;"></p>
@@ -57,6 +52,10 @@
 </div>
 
 <script>
+// ==============================================
+// SEM FFmpeg — TUDO NATIVO DO NAVEGADOR
+// ==============================================
+
 let arquivosCarregados = [];
 let arquivosProntos = [];
 
@@ -81,7 +80,7 @@ function baixar(blob, nome) {
   URL.revokeObjectURL(url);
 }
 
-// Carregar arquivos
+// Selecionar arquivos
 document.getElementById('arquivos').addEventListener('change', e => {
   arquivosCarregados = Array.from(e.target.files).map(f => ({ 
     nome: f.name, 
@@ -95,7 +94,7 @@ document.getElementById('arquivos').addEventListener('change', e => {
   log(`✅ ${arquivosCarregados.length} arquivo(s) carregado(s)`);
 });
 
-// Carregar vídeo e retornar elemento pronto
+// Carregar elemento de vídeo
 function carregarVideoElemento(url) {
   return new Promise((resolve) => {
     const video = document.createElement('video');
@@ -107,8 +106,8 @@ function carregarVideoElemento(url) {
   });
 }
 
-// Gerar vídeo editado via Canvas + MediaRecorder
-async function criarVideoEditado(entradas, duracaoTotal, nomeSaida, estilo) {
+// Criar vídeo editado via Canvas (sem FFmpeg)
+async function criarVideoEditado(entradas, duracaoTotal, estilo) {
   return new Promise(async (resolve) => {
     const videos = [];
     for(const entrada of entradas) {
@@ -129,7 +128,7 @@ async function criarVideoEditado(entradas, duracaoTotal, nomeSaida, estilo) {
     const canvas = document.createElement('canvas');
     canvas.width = L;
     canvas.height = A;
-    const ctx = canvas.getContext('2d', { willReadFrequently: true });
+    const ctx = canvas.getContext('2d');
 
     const stream = canvas.captureStream(fps);
     const gravador = new MediaRecorder(stream, { 
@@ -183,7 +182,7 @@ async function criarVideoEditado(entradas, duracaoTotal, nomeSaida, estilo) {
 
       ctx.drawImage(videoAtual, 0, 0, L, A);
       
-      // Efeito de brilho e cor
+      // Efeito: melhora brilho e cor
       const imgData = ctx.getImageData(0, 0, L, A);
       const dados = imgData.data;
       for(let i = 0; i < dados.length; i += 4) {
@@ -193,11 +192,11 @@ async function criarVideoEditado(entradas, duracaoTotal, nomeSaida, estilo) {
       }
       ctx.putImageData(imgData, 0, 0);
       
-      // Faixa superior
+      // Faixa superior escura
       ctx.fillStyle = 'rgba(0,0,0,0.6)';
       ctx.fillRect(0, 0, L, 70);
       
-      // Título
+      // Título com cor do estilo
       ctx.fillStyle = cfg.cor;
       ctx.font = 'bold 26px Arial';
       ctx.textAlign = 'center';
@@ -205,12 +204,12 @@ async function criarVideoEditado(entradas, duracaoTotal, nomeSaida, estilo) {
       ctx.shadowBlur = 4;
       ctx.fillText(cfg.titulo, L/2, 35);
       
-      // Trecho
+      // Número do trecho
       ctx.fillStyle = '#ffffff';
       ctx.font = 'bold 18px Arial';
       ctx.fillText(`Trecho ${trechoAtual+1} de ${videos.length}`, L/2, 60);
       
-      // Barra de progresso
+      // Barra de progresso na base
       ctx.fillStyle = 'rgba(255,255,255,0.2)';
       ctx.fillRect(20, A - 20, L - 40, 8);
       ctx.fillStyle = cfg.cor;
@@ -219,6 +218,7 @@ async function criarVideoEditado(entradas, duracaoTotal, nomeSaida, estilo) {
       
       ctx.shadowBlur = 0;
 
+      // Avança tempo
       const agora = performance.now();
       const decorrido = agora - tempoAnterior;
       tempoAnterior = agora;
@@ -235,7 +235,7 @@ async function criarVideoEditado(entradas, duracaoTotal, nomeSaida, estilo) {
   });
 }
 
-// Botão principal
+// Botão principal de geração
 document.getElementById('gerar').addEventListener('click', async () => {
   if(arquivosCarregados.length === 0) {
     alert('⚠️ Escolha pelo menos um vídeo primeiro!');
@@ -251,13 +251,15 @@ document.getElementById('gerar').addEventListener('click', async () => {
   document.getElementById('log').innerHTML = '';
   arquivosProntos = [];
 
+  // Definição das 4 versões
   const versoes = [
     { estilo: 'completo', nome: '1_Completo_12s', desc: 'Junta todos — 12s — cores melhoradas', duracao: 12 },
     { estilo: 'curto', nome: '2_Curto_6s', desc: 'Corte rápido — 6s — cores vibrantes', duracao: 6 },
     { estilo: 'reels', nome: '3_Reels_8s', desc: 'Otimizado — 8s — chamativo', duracao: 8 },
-    { estilo: 'resumo', nome: '4_Resumo_10s', desc: 'Resumo — 10s — equilíbrio', duracao: 10 }
+    { estilo: 'resumo', nome: '4_Resumo_10s', desc: 'Resumo — 10s — equilíbrio visual', duracao: 10 }
   ];
 
+  // Processa uma por uma
   for(let i = 0; i < versoes.length; i++) {
     const v = versoes[i];
     etapa.textContent = `🎬 ${i+1}/${versoes.length} — ${v.nome}`;
@@ -265,7 +267,7 @@ document.getElementById('gerar').addEventListener('click', async () => {
     log(`🔄 Processando: ${v.desc}`);
     
     try {
-      const video = await criarVideoEditado(arquivosCarregados, v.duracao, v.nome, v.estilo);
+      const video = await criarVideoEditado(arquivosCarregados, v.duracao, v.estilo);
       arquivosProntos.push({ nome: v.nome + '.webm', blob: video, desc: v.desc });
       log(`✅ ${v.nome} pronto!`, 'sucesso');
     } catch(e) {
@@ -276,6 +278,7 @@ document.getElementById('gerar').addEventListener('click', async () => {
   atualizarBarra(100);
   etapa.textContent = '✅ Finalizado!';
 
+  // Exibe resultados
   if(arquivosProntos.length > 0) {
     resultados.classList.remove('oculto');
     document.getElementById('lista-resultados').innerHTML = arquivosProntos.map(a => 
@@ -286,11 +289,11 @@ document.getElementById('gerar').addEventListener('click', async () => {
   btn.disabled = false;
 });
 
-// Baixar todos
+// Baixar todos os vídeos
 document.addEventListener('click', e => {
   if(e.target.id === 'baixar-todos') {
     arquivosProntos.forEach((a, i) => setTimeout(() => baixar(a.blob, a.nome), i * 400));
-    alert(`✅ Baixando ${arquivosProntos.length} vídeos!\n\n✅ Junta trechos\n✅ Melhora cores\n✅ Sem legenda\n✅ Sem música`);
+    alert(`✅ Baixando ${arquivosProntos.length} vídeos!\n\n✅ Junta trechos\n✅ Melhora brilho e cor\n✅ Sem legenda\n✅ Sem música`);
   }
 });
 </script>
