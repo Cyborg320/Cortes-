@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Editora Evolutiva — Gravação Offline & Destaques</title>
+    <link rel="stylesheet" href="estilo.css">
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.17.0/dist/tf.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div class="logo-nome">
+                <h1 class="nome-principal">🧠 IA Editora Evolutiva</h1>
+                <p class="subtitulo">Grava sem internet • Estilo Medalha • Salva tudo</p>
+                <div class="data-hora-estilo" id="mostra-hora"></div>
+            </div>
+            <div class="status-sistema">
+                <span id="status-tf">🔄 Carregando IA...</span>
+                <span id="status-pasta">📁 Pasta padrão: Downloads</span>
+            </div>
+        </header>
+
+        <!-- 📁 SELEÇÃO DE PASTA DE SALVAMENTO -->
+        <section class="seletor-pasta">
+            <h3>📁 Onde salvar seus arquivos?</h3>
+            <div class="caixa-pasta">
+                <p id="caminho-pasta">Pasta padrão: Downloads / IA_Editora_Arquivos /</p>
+                <button id="btn-escolher-pasta" class="botao">📂 Escolher Pasta...</button>
+                <p class="ajuda-pasta">💡 No navegador os arquivos vão para a pasta de Downloads. Em versões avançadas você seleciona a pasta exata.</p>
+                <label>Nome personalizado da pasta principal:
+                    <input type="text" id="nome-pasta-salvamento" value="IA_Editora_Arquivos" placeholder="Nome da pasta">
+                </label>
+                <button id="salvar-pasta" class="botao-principal">✅ Usar Esta Pasta</button>
+            </div>
+        </section>
+
+        <div class="abas">
+            <button class="aba-ativa" data-aba="gravacao">🎙️ Gravação Offline</button>
+            <button data-aba="editoria">✂️ Editoria Inteligente</button>
+            <button data-aba="live">📡 Assistência em Live</button>
+            <button data-aba="destaques">🏅 Estilo Medalha</button>
+            <button data-aba="analise">📊 Dados & Evolução</button>
+        </div>
+
+        <!-- 🎙️ GRAVAÇÃO OFFLINE -->
+        <section id="gravacao" class="conteudo aba-visivel">
+            <h2>Gravação Sem Internet — Salva Direto no Computador</h2>
+            <div class="area-gravacao">
+                <video id="visualizacao" autoplay muted playsinline></video>
+                <div class="botoes-gravacao">
+                    <button id="btn-iniciar-grav" class="botao-principal">🔴 Iniciar Gravação</button>
+                    <button id="btn-parar-grav" class="botao-perigo oculto">⏹️ Parar Gravação</button>
+                    <button id="btn-baixar-grav" class="botao oculto">💾 Salvar no Computador</button>
+                </div>
+                <p id="status-gravacao">Pronto para gravar — funciona sem internet conectada</p>
+                <div class="info-gravacao">
+                    <p>📁 Arquivos serão salvos em: <strong id="caminho-salvamento">Downloads / <span id="nome-pasta-mostra">IA_Editora_Arquivos</span> / _Gravacoes_</strong></p>
+                    <p>🔒 Tudo fica no seu computador — nada é enviado para servidores externos</p>
+                </div>
+            </div>
+
+            <div class="config-gravacao">
+                <h3>Configurações de Gravação</h3>
+                <label>
+                    <input type="checkbox" id="gravar-tela" checked> 🖥️ Gravar Tela + Câmera
+                </label>
+                <label>
+                    <input type="checkbox" id="gravar-audio" checked> 🎤 Gravar Áudio
+                </label>
+                <label>
+                    <input type="checkbox" id="auto-salvar" checked> 💾 Salvar automaticamente ao parar
+                </label>
+                <label>
+                    <input type="checkbox" id="auto-editar" checked> ✂️ Enviar para edição com IA após gravar
+                </label>
+                <label>
+                    Resolução:
+                    <select id="resolucao-grav">
+                        <option value="1080" selected>1080p Full HD</option>
+                        <option value="720">720p HD</option>
+                        <option value="2160">4K (se dispositivo suportar)</option>
+                    </select>
+                </label>
+                <label>
+                    Nome do arquivo:
+                    <select id="padrao-nome">
+                        <option value="data" selected>Data e Hora — Gravacao_20261021_2345</option>
+                        <option value="personalizado">Personalizado — MinhaGravacao_001</option>
+                    </select>
+                </label>
+                <label id="nome-personalizado-grupo" class="oculto">
+                    Digite o nome:
+                    <input type="text" id="nome-arquivo-prefixo" value="MinhaGravacao" placeholder="Seu nome">
+                </label>
+            </div>
+
+            <div id="ultimas-gravacoes" class="lista-salvos">
+                <h3>📂 Gravações Recentes Salvas</h3>
+                <ul id="lista-gravadas">
+                    <li>Nenhuma gravação salva ainda</li>
+                </ul>
+            </div>
+        </section>
+
+        <!-- ✂️ EDITORIA -->
+        <section id="editoria" class="conteudo">
+            <h2>Processamento de Vídeo com IA</h2>
+            <div class="area-upload" id="area-upload">
+                <input type="file" id="entrada-video" accept="video/*" multiple>
+                <label for="entrada-video" class="botao">📤 Enviar Vídeo(s) ou Arraste Aqui</label>
+                <p id="status-envio">Sem limite de duração ou tamanho</p>
+            </div>
+
+            <div class="config-edicao">
+                <h3>O que a IA deve fazer:</h3>
+                <label><input type="checkbox" id="detectar-momentos" checked> 🎯 Detectar momentos altos, falas, reações</label>
+                <label><input type="checkbox" id="cortes-auto" checked> ✂️ Gerar cortes automáticos</label>
+                <label><input type="checkbox" id="legenda-auto" checked> 💬 Gerar legendas sincronizadas</label>
+                <label><input type="checkbox" id="musica-fundo" checked> 🎵 Adicionar trilha adequada</label>
+                <label><input type="checkbox" id="melhorar-img" checked> ✨ Melhorar qualidade</label>
+                <label><input type="checkbox" id="estilo-medalha" checked> 🏅 Aplicar Estilo Medalha aos Destaques</label>
+                <label><input type="checkbox" id="salvar-zip" checked> 📦 Baixar tudo em um arquivo ZIP</label>
+
+                <h4>Estilo do Conteúdo</h4>
+                <select id="estilo-conteudo">
+                    <option value="dinamico" selected>🎮 Jogos / Dinâmico</option>
+                    <option value="comedia">😂 Comédia / Reações</option>
+                    <option value="educativo">📚 Educativo / Tutoriais</option>
+                    <option value="vlog">📹 Vlog / Diário</option>
+                    <option value="medalha">🏅 Foco em Destaques & Medalhas</option>
+                </select>
+            </div>
+
+            <button id="iniciar-processamento" class="botao-principal">🚀 Iniciar Edição Inteligente</button>
+
+            <div id="painel-progresso" class="oculto">
+                <h3>Processando...</h3>
+                <p id="etapa-atual">Inicializando...</p>
+                <div class="barra-progresso"><div id="barra-principal"></div></div>
+                <div id="log-ia" class="caixa-log"></div>
+            </div>
+
+            <div id="resultados-finais" class="oculto">
+                <h3>✅ Arquivos Prontos</h3>
+                <p>📁 Serão salvos em: <strong id="pasta-saida-mostra">Downloads / <span id="nome-pasta-saida">IA_Editora_Arquivos</span> / _Edicoes_Finais_</strong></p>
+                <div id="lista-arquivos"></div>
+                <button id="baixar-todos-zip" class="botao-principal">📦 Baixar Tudo em ZIP</button>
+                <button id="baixar-individual" class="botao">💾 Baixar Arquivos Separadamente</button>
+            </div>
+        </section>
+
+        <!-- 🏅 ESTILO MEDALHA -->
+        <section id="destaques" class="conteudo">
+            <h2>🏅 Sistema de Destaques — Estilo Medalha</h2>
+            <p>A IA identifica automaticamente seus melhores momentos e cria versões com selo de destaque, ranking e moldura de medalha!</p>
+            
+            <div class="config-medalha">
+                <h3>Regras para Destaques</h3>
+                <label>Intensidade para considerar destaque:
+                    <select id="limite-destaque">
+                        <option value="alto">🔥 Muito intenso (apenas os melhores)</option>
+                        <option value="medio" selected>✨ Equilibrado</option>
+                        <option value="baixo">📸 Mais sensível (mais momentos)</option>
+                    </select>
+                </label>
+                <label>
+                    <input type="checkbox" id="moldura-medalha" checked> 🏅 Adicionar moldura visual de destaque
+                </label>
+                <label>
+                    <input type="checkbox" id="selo-top" checked> ⭐ Colocar "TOP Momento" na tela
+                </label>
+                <label>
+                    <input type="checkbox" id="montar-ranking" checked> 📊 Criar vídeo com os MELHORES 5 momentos juntos
+                </label>
+                <label>Texto personalizado da medalha:
+                    <input type="text" id="texto-medalha" value="🏅 DESTAQUE" placeholder="Seu texto">
+                </label>
+            </div>
+
+            <div class="exemplos-medalha">
+                <h3>Pré-visualização do Estilo</h3>
+                <div class="grade-exemplos">
+                    <div class="exemplo-card">
+                        <div class="medalha-visual">🥇 1º Lugar</div>
+                        <p>Melhor Momento</p>
+                    </div>
+                    <div class="exemplo-card">
+                        <div class="medalha-visual">🥈 2º Lugar</div>
+                        <p>Destaque Especial</p>
+                    </div>
+                    <div class="exemplo-card">
+                        <div class="medalha-visual">🥉 3º Lugar</div>
+                        <p>Momento Importante</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="historico-destaques">
+                <h3>🏆 Seus Destaques Salvos</h3>
+                <ul id="lista-destaques-salvos">
+                    <li>Processando vídeos para gerar seus primeiros destaques...</li>
+                </ul>
+            </div>
+        </section>
+
+        <!-- 📡 LIVE -->
+        <section id="live" class="conteudo">
+            <h2>Assistente de Live em Tempo Real</h2>
+            <div class="form-live">
+                <label>Plataforma:</label>
+                <select id="plataforma-live">
+                    <option value="simulacao" selected>Modo Simulação / Teste</option>
+                    <option value="twitch">Twitch</option>
+                    <option value="youtube">YouTube Live</option>
+                </select>
+                <label>Canal / Nome:</label>
+                <input type="text" id="canal-live" placeholder="Seu canal">
+                <label><input type="checkbox" id="salvar-clipes-live" checked> 💾 Salvar clipes da live automaticamente</label>
+                <button id="conectar-live" class="botao-principal">🔗 Conectar à Live</button>
+            </div>
+            <div id="painel-live-ativo" class="oculto">
+                <p>Status: <span class="verde">🔴 Ao Vivo — Interagindo e salvando clipes</span></p>
+                <p>📁 Clipes sendo salvos em: <strong id="caminho-live">Downloads / IA_Editora_Arquivos / _Clipes_Live_</strong></p>
+                <div id="caixa-chat-ia" class="caixa-chat"></div>
+                <button id="desconectar-live" class="botao-perigo">⏹️ Encerrar</button>
+            </div>
+        </section>
+
+        <!-- 📊 DADOS -->
+        <section id="analise" class="conteudo">
+            <h2>📊 Dados, Evolução & Salvamento</h2>
+            <div class="grade-dados">
+                <div class="card-dado-grande">
+                    <span class="numero-destaque" id="total-processado">0</span>
+                    Vídeos Processados
+                </div>
+                <div class="card-dado-grande">
+                    <span class="numero-destaque" id="total-horas">0h</span>
+                    Conteúdo Analisado
+                </div>
+                <div class="card-dado-grande">
+                    <span class="numero-destaque" id="nivel-geral">1</span>
+                    Nível da IA
+                </div>
+                <div class="card-dado-grande">
+                    <span class="numero-destaque" id="destaques-totais">0</span>
+                    Destaques Medalha
+                </div>
+            </div>
+            <div class="bloco-salvamento">
+                <h3>💾 Resumo de Salvamento</h3>
+                <ul>
+                    <li>📁 Pasta principal: <strong id="resumo-nome-pasta">IA_Editora_Arquivos</strong></li>
+                    <li>📂 Gravações offline → <strong>_Gravacoes_Salvas/</strong></li>
+                    <li>📂 Vídeos editados → <strong>_Edicoes_Finais/</strong></li>
+                    <li>📂 Destaques Medalha → <strong>_Destaques_Medalha/</strong></li>
+                    <li>📂 Clipes de Live → <strong>_Clipes_Live/</strong></li>
+                </ul>
+                <p class="aviso-salvamento">ℹ️ Os arquivos são baixados automaticamente para a pasta de Downloads do seu navegador.</p>
+                <button id="limpar-dados" class="botao-perigo">🗑️ Limpar Histórico (não apaga arquivos já baixados)</button>
+            </div>
+        </section>
+    </div>
+
+    <script src="logica-ia.js" type="module"></script>
+</body>
+</html>
